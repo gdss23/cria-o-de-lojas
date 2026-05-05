@@ -4,14 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Fabrica de Lojas</title>
-    
-    <!-- Manifest e Service Worker -->
     <link rel="manifest" href="manifest.json">
     <script>
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js');
-        }
-    </script><!DOCTYPE html>
+        if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+    </script>
+    <style>
+        body { font-family: sans-serif; }
+    </style>
+</head>
+<body>
+    <h1>Fabrica de Lojas</h1>
+    <p>Minha Fabrica</p>
+    <!-- <!DOCTYPE html>
 <html lang="pt">
 <head>
     <meta charset="UTF-8">
@@ -266,12 +270,6 @@
         window.onload = function() { load(); show('loginScreen'); };
     </script>
 </body>
-  </html>
-    <!-- COLE AQUI TODO O CSS E O CONTEÚDO HTML DO SEU SITE -->
-    <!-- ... -->
-</head>
-<body>
-    <!-- Seu conteúdo aqui -->
-    <!-- Mantenha a estrutura do JavaScript da loja (carrinho, etc.) -->
+    </html> -->
 </body>
 </html>
