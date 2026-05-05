@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Fabrica de Lojas</title>
+    
+    <!-- Manifest e Service Worker -->
+    <link rel="manifest" href="manifest.json">
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js');
+        }
+    </script><!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fábrica de Lojas</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; background: #f5f5f5; }
+        .screen { display: none; padding: 16px; }
+        .screen.active { display: block; }
+        header { background: #333; color: white; padding: 12px 16px; display: flex; justify-content: space-between; }
+        header a { color: white; }
+        .card { background: white; border-radius: 8px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .btn { background: #4F46E5; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+        .btn-outline { background: white; color: #4F46E5; border: 1px solid #4F46E5; }
+        .btn-sm { padding: 4px 12px; font-size: 13px; }
+        .btn-danger { background: #e74c3c; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px,1fr)); gap: 12px; }
+        input, select, textarea { width: 100%; padding: 8px; margin: 4px 0 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+        .flex { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+        .badge { background: #eee; padding: 2px 8px; border-radius: 10px; font-size: 12px; }
+        .store-header { padding: 20px; text-align: center; color: white; }
+        .product-card { text-align: center; }
+        .product-card img { width: 100%; height: 120px; object-fit: cover; border-radius: 6px; }
+        .cart-bar { position: fixed; bottom: 0; left: 0; right: 0; background: white; padding: 12px; box-shadow: 0 -2px 10px rgba(0,0,0,0.2); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <!-- Tela de Login -->
+    <div id="loginScreen" class="screen active">
+        <div style="max-width: 400px; margin: 80px auto; background: white; padding: 32px; border-radius: 12px; text-align: center;">
+            <h2>🔐 Fábrica de Lojas</h2>
+            <input type="password" id="passwordInput" placeholder="Senha">
+            <button class="btn" onclick="login()" style="margin-top: 12px; width: 100%;">Entrar</button>
+            <p id="loginError" style="color: red;"></p>
+            <small style="color: gray;">Senha: admin123</small>
+        </div>
+    </div>
+
+    <!-- Painel Master -->
+    <div id="adminScreen" class="screen">
+        <header>
+            <span>🏭 Minhas Lojas</span>
+            <a href="#" onclick="logout()">Sair</a>
+        </header>
+        <div style="padding: 16px;">
+            <button class="btn" onclick="newStore()" style="margin-bottom: 16px;">+ Nova Loja</button>
+            <div id="storeList" class="grid"></div>
+        </div>
+    </div>
+
+    <!-- Editor de Loja -->
+    <div id="editorScreen" class="screen">
+        <header>
+            <a href="#" onclick="goToAdmin()">← Voltar</a>
+            <span id="editorTitle">Nova Loja</span>
+            <span></span>
+        </header>
+        <div style="padding: 16px;">
+            <div class="card">
+                <h3>Dados da Loja</h3>
+                <label>Nome</label><input type="text" id="editName">
+                <label>Slug (endereço)</label><input type="text" id="editSlug" oninput="this.value = this.value.replace(/\\s/g,'').toLowerCase()">
+                <label>Segmento</label><select id="editSegment"><option value="lanchonete">Lanchonete</option><option value="moveis">Móveis</option><option value="naturais">Produtos Naturais</option><option value="generico">Genérico</option></select>
+                <label>WhatsApp</label><input type="text" id="editWhatsapp" placeholder="11988885555">
+                <label>Cor</label><input type="color" id="editColor">
+                <button class="btn" onclick="saveStore()" style="margin-top: 12px;">Salvar Loja</button>
+                <input type="hidden" id="editIndex" value="-1">
+            </div>
+            <div id="editorExtras" class="hidden">
+                <div class="card">
+                    <h3>Categorias</h3>
+                    <div id="catList" class="flex"></div>
+                    <div class="flex"><input type="text" id="newCat" placeholder="Nova categoria"><button class="btn btn-sm" onclick="addCategory()">+</button></div>
+                </div>
+                <div class="card">
+                    <h3>Produtos</h3>
+                    <div class="flex">
+                        <select id="prodCat"></select>
+                        <input type="text" id="prodName" placeholder="Nome">
+                        <input type="number" id="prodPrice" placeholder="Preço" step="0.01">
+                    </div>
+                    <div class="flex">
+                        <textarea id="prodDesc" placeholder="Descrição"></textarea>
+                        <div>
+                            <label>Imagem</label>
+                            <input type="file" id="prodImageFile" accept="image/*" onchange="handleImage(this)">
+                            <input type="hidden" id="prodImageData">
+                        </div>
+                    </div>
+                    <button class="btn btn-sm" onclick="addProduct()">Adicionar</button>
+                    <div id="imagePreview" style="margin-top: 8px;"></div>
+                    <table style="width:100%; margin-top: 12px;" id="prodTable">
+                        <tr><th>Imagem</th><th>Nome</th><th>Preço</th><th></th></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loja Pública -->
+    <div id="storeScreen" class="screen">
+        <div id="storeHeader" class="store-header">
+            <h1 id="storePubName"></h1>
+        </div>
+        <div style="padding: 16px;">
+            <div id="storeCatFilters" class="flex"></div>
+            <div id="storeProducts" class="grid"></div>
+        </div>
+        <div id="cartBar" class="cart-bar hidden">
+            <strong id="cartInfo"></strong>
+            <div class="flex">
+                <input type="text" id="clientName" placeholder="Nome">
+                <input type="tel" id="clientPhone" placeholder="WhatsApp">
+                <button class="btn btn-sm" onclick="sendOrder()">Pedir</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Estado global
+        let stores = [];
+        let currentEditIdx = -1;
+        let currentCart = {};
+        let currentPubStore = null;
+        const SEGMENTS = {
+            lanchonete: { cats: ['Lanches','Bebidas','Porções','Sobremesas'], prods: [['X-Burger',18.9,'Lanches','Pão, carne, queijo'],['Coca-Cola',6,'Bebidas'],['Batata Frita',14,'Porções']] },
+            moveis: { cats: ['Sala','Quarto','Cozinha','Escritório'], prods: [['Sofá 3 Lugares',1890,'Sala','2,20m x 90cm'],['Cama Box',1450,'Quarto']] },
+            naturais: { cats: ['Castanhas','Farinhas','Suplementos','Chás'], prods: [['Castanha do Pará',32,'Castanhas','250g'],['Whey Protein',89.9,'Suplementos']] },
+            generico: { cats: [], prods: [] }
+        };
+
+        function uid() { return Date.now().toString(36) + Math.random().toString(36).substr(2); }
+        function load() { try { stores = JSON.parse(localStorage.fabrica || '[]'); } catch(e) { stores = []; } }
+        function save() { localStorage.fabrica = JSON.stringify(stores); }
+
+        // Telas
+        function show(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+
+        // Login
+        function login() {
+            if (document.getElementById('passwordInput').value === 'admin123') { show('adminScreen'); renderStores(); }
+            else { document.getElementById('loginError').innerText = 'Senha incorreta'; }
+        }
+        function logout() { show('loginScreen'); document.getElementById('passwordInput').value = ''; }
+        function goToAdmin() { show('adminScreen'); renderStores(); }
+
+        // Admin
+        function renderStores() {
+            const div = document.getElementById('storeList');
+            if (!stores.length) { div.innerHTML = '<p>Nenhuma loja ainda.</p>'; return; }
+            div.innerHTML = stores.map((s,i) => `
+                <div class="card" style="border-left: 5px solid ${s.color}"><h3>${esc(s.name)}</h3><p>Slug: ${s.slug}</p>
+                <div class="flex"><button class="btn btn-sm" onclick="editStore(${i})">Gerenciar</button>
+                <button class="btn btn-sm btn-outline" onclick="viewStore('${s.slug}')">Ver Loja</button>
+                <button class="btn btn-sm btn-danger" onclick="if(confirm('Excluir?')){stores.splice(${i},1);save();renderStores();}">Excluir</button></div></div>`).join('');
+        }
+
+        function newStore() {
+            currentEditIdx = -1; document.getElementById('editIndex').value = -1;
+            ['editName','editSlug','editWhatsapp'].forEach(id => document.getElementById(id).value = '');
+            document.getElementById('editSegment').value = 'lanchonete';
+            document.getElementById('editColor').value = '#4F46E5';
+            document.getElementById('editorExtras').classList.add('hidden');
+            show('editorScreen');
+        }
+
+        function editStore(idx) {
+            currentEditIdx = idx; document.getElementById('editIndex').value = idx;
+            const s = stores[idx];
+            document.getElementById('editName').value = s.name;
+            document.getElementById('editSlug').value = s.slug;
+            document.getElementById('editSegment').value = s.segment;
+            document.getElementById('editWhatsapp').value = s.whatsapp;
+            document.getElementById('editColor').value = s.color;
+            document.getElementById('editorExtras').classList.remove('hidden');
+            show('editorScreen');
+            renderCatsAndProds();
+        }
+
+        function saveStore() {
+            const name = document.getElementById('editName').value.trim();
+            const slug = document.getElementById('editSlug').value.trim();
+            const segment = document.getElementById('editSegment').value;
+            const whatsapp = document.getElementById('editWhatsapp').value.trim();
+            const color = document.getElementById('editColor').value;
+            if (!name || !slug) return alert('Preencha nome e slug');
+            if (stores.some((s,i) => s.slug === slug && i !== currentEditIdx)) return alert('Slug já existe');
+            if (currentEditIdx === -1) {
+                const seg = SEGMENTS[segment];
+                const cats = seg.cats.map(c => ({id: uid(), name: c}));
+                const prods = seg.prods.map(p => { const cat = cats.find(c => c.name === p[2]); return {id: uid(), name: p[0], price: p[1], desc: p[3]||'', image: '', categoryId: cat ? cat.id : null}; });
+                stores.push({name, slug, segment, whatsapp, color, categories: cats, products: prods});
+            } else {
+                Object.assign(stores[currentEditIdx], {name, slug, segment, whatsapp, color});
+            }
+            save(); goToAdmin();
+        }
+
+        function renderCatsAndProds() {
+            const s = stores[currentEditIdx];
+            document.getElementById('catList').innerHTML = s.categories.map(c => `<span class="badge">${esc(c.name)} <a href="#" onclick="delCat('${c.id}')">×</a></span>`).join('');
+            document.getElementById('prodCat').innerHTML = s.categories.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
+            document.getElementById('prodTable').innerHTML = s.products.map(p => `
+                <tr><td>${p.image ? `<img src="${p.image}" style="width:40px;height:40px;object-fit:cover">` : '-'}</td><td>${esc(p.name)}</td><td>R$ ${p.price.toFixed(2)}</td><td><button class="btn btn-sm btn-danger" onclick="delProd('${p.id}')">×</button></td></tr>`).join('');
+        }
+
+        function addCategory() { const s=stores[currentEditIdx]; const n=document.getElementById('newCat').value.trim(); if(n){s.categories.push({id:uid(),name:n});save();document.getElementById('newCat').value='';renderCatsAndProds();} }
+        function delCat(id) { const s=stores[currentEditIdx]; s.categories=s.categories.filter(c=>c.id!==id); s.products.forEach(p=>{if(p.categoryId===id)p.categoryId=null;});save();renderCatsAndProds(); }
+        function handleImage(input) { if(input.files[0]){ const r=new FileReader(); r.onload=function(e){ document.getElementById('prodImageData').value=e.target.result; document.getElementById('imagePreview').innerHTML=`<img src="${e.target.result}" style="max-width:100px;">`; }; r.readAsDataURL(input.files[0]); } }
+        function addProduct() {
+            const s=stores[currentEditIdx]; const n=document.getElementById('prodName').value.trim(); const p=parseFloat(document.getElementById('prodPrice').value); const d=document.getElementById('prodDesc').value.trim(); const img=document.getElementById('prodImageData').value; const cat=document.getElementById('prodCat').value;
+            if(!n||isNaN(p))return alert('Nome e preço obrigatórios');
+            s.products.push({id:uid(),name:n,price:p,desc:d,image:img,categoryId:cat||null});
+            save(); ['prodName','prodPrice','prodDesc','prodImageData','prodImageFile'].forEach(id=>document.getElementById(id).value=''); document.getElementById('imagePreview').innerHTML=''; renderCatsAndProds();
+        }
+        function delProd(id) { const s=stores[currentEditIdx]; s.products=s.products.filter(p=>p.id!==id);save();renderCatsAndProds(); }
+
+        // Loja Pública
+        function viewStore(slug) {
+            const s = stores.find(s=>s.slug===slug); if(!s) return alert('Loja não encontrada');
+            currentPubStore = s; currentCart = {};
+            document.getElementById('storePubName').innerText = s.name;
+            document.getElementById('storeHeader').style.backgroundColor = s.color;
+            document.getElementById('storeCatFilters').innerHTML = `<button class="btn btn-sm" onclick="filterPub('all')">Todos</button>` + s.categories.map(c=>`<button class="btn btn-sm btn-outline" onclick="filterPub('${c.id}')">${esc(c.name)}</button>`).join('');
+            filterPub('all'); updateCartBar(); show('storeScreen');
+        }
+        function filterPub(catId) {
+            const s=currentPubStore; const prods = catId==='all'? s.products : s.products.filter(p=>p.categoryId===catId);
+            document.getElementById('storeProducts').innerHTML = prods.map(p=>`
+                <div class="card product-card"><${p.image?`img src="${p.image}"`:'div style="height:120px;background:#eee;display:flex;align-items:center;justify-content:center;border-radius:6px;"'}${p.image?'':'>Sem foto</div>'}>
+                <h4>${esc(p.name)}</h4><small>${esc(p.desc||'')}</small><p style="font-weight:bold;color:${s.color}">R$ ${p.price.toFixed(2)}</p>
+                <button class="btn btn-sm" onclick="addCart('${p.id}')">+</button> <span id="q${p.id}">${currentCart[p.id]||0}</span></div>`).join('');
+        }
+        function addCart(pid) { currentCart[pid] = (currentCart[pid]||0)+1; document.getElementById('q'+pid).innerText=currentCart[pid]; updateCartBar(); }
+        function updateCartBar() { const s=currentPubStore; let total=0,items=0; for(let pid in currentCart){ if(currentCart[pid]>0){ const p=s.products.find(p=>p.id===pid); if(p){items+=currentCart[pid]; total+=p.price*currentCart[pid];}}}; const bar=document.getElementById('cartBar'); if(items===0)bar.classList.add('hidden'); else{bar.classList.remove('hidden'); document.getElementById('cartInfo').innerText=`${items} itens - R$ ${total.toFixed(2)}`;} }
+        function sendOrder() {
+            const s=currentPubStore; const nome=document.getElementById('clientName').value.trim(); const fone=document.getElementById('clientPhone').value.trim();
+            if(!nome||!fone)return alert('Preencha nome e WhatsApp');
+            let txt=''; let total=0;
+            for(let pid in currentCart){ if(currentCart[pid]>0){ const p=s.products.find(p=>p.id===pid); if(p){txt+=`${p.name} x${currentCart[pid]} - R$ ${(p.price*currentCart[pid]).toFixed(2)}\n`; total+=p.price*currentCart[pid];}} }
+            if(!txt)return alert('Carrinho vazio');
+            const msg=`Olá! Pedido:\n${txt}Total: R$ ${total.toFixed(2)}\nCliente: ${nome} (${fone})`;
+            const wa = s.whatsapp || '11999999999';
+            window.open(`https://wa.me/55${wa}?text=${encodeURIComponent(msg)}`, '_blank');
+            currentCart={}; updateCartBar(); filterPub('all'); document.getElementById('clientName').value=''; document.getElementById('clientPhone').value='';
+        }
+
+        function esc(s) { const d=document.createElement('div'); d.innerText=s; return d.innerHTML; }
+
+        // Init
+        window.onload = function() { load(); show('loginScreen'); };
+    </script>
+</body>
+  </html>
+    <!-- COLE AQUI TODO O CSS E O CONTEÚDO HTML DO SEU SITE -->
+    <!-- ... -->
+</head>
+<body>
+    <!-- Seu conteúdo aqui -->
+    <!-- Mantenha a estrutura do JavaScript da loja (carrinho, etc.) -->
+</body>
+</html>
